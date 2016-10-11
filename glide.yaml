@@ -1,0 +1,5 @@
+package: github.com/coryb/oreo
+import:
+- package: github.com/op/go-logging
+  version: ^1.0.0
+- package: github.com/sethgrid/pester
