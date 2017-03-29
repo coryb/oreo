@@ -95,6 +95,15 @@ func (c *Client) WithCallback(callback AfterRequestCallback) *Client {
 	return c
 }
 
+func NoRedirect(req *http.Request, _ []*http.Request) error {
+	return http.ErrUseLastResponse
+}
+
+func (c *Client) WithCheckRedirect(checkFunc func(*http.Request, []*http.Request) error) *Client {
+	c.CheckRedirect = checkFunc
+	return c
+}
+
 func (c *Client) initCookieJar() (err error) {
 	if c.Jar != nil {
 		return nil

@@ -323,3 +323,43 @@ func TestOreoWithCallback(t *testing.T) {
 	assert.Equal(t, 1, called)
 	assert.Equal(t, 2, requests)
 }
+
+func TestOreoWithRedirect(t *testing.T) {
+	requests := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if requests == 1 {
+			http.Redirect(w, r, "/redirect", http.StatusMovedPermanently)
+			return
+		}
+		fmt.Fprintf(w, "OK")
+	}))
+	defer ts.Close()
+
+	c := New()
+
+	resp, err := c.Get(ts.URL)
+	assert.NotNil(t, resp)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, requests)
+}
+
+func TestOreoWithNoRedirect(t *testing.T) {
+	requests := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if requests == 1 {
+			http.Redirect(w, r, "/redirect/", http.StatusMovedPermanently)
+		} else {
+			fmt.Fprintf(w, "OK")
+		}
+	}))
+	defer ts.Close()
+
+	c := New().WithCheckRedirect(NoRedirect)
+
+	resp, err := c.Get(ts.URL)
+	assert.NotNil(t, resp)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, requests)
+}
