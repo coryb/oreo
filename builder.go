@@ -8,12 +8,12 @@ import (
 	"strings"
 )
 
-type reqBuilder struct {
+type ReqBuilder struct {
 	request *http.Request
 }
 
-func ReqBuilder(u *url.URL) *reqBuilder {
-	return &reqBuilder{
+func RequestBuilder(u *url.URL) *ReqBuilder {
+	return &ReqBuilder{
 		request: &http.Request{
 			Method:     "GET",
 			URL:        u,
@@ -27,36 +27,36 @@ func ReqBuilder(u *url.URL) *reqBuilder {
 	}
 }
 
-func (b *reqBuilder) WithHeader(name, value string) *reqBuilder {
+func (b *ReqBuilder) WithHeader(name, value string) *ReqBuilder {
 	b.request.Header.Add(name, value)
 	return b
 }
 
-func (b *reqBuilder) WithContentType(value string) *reqBuilder {
+func (b *ReqBuilder) WithContentType(value string) *ReqBuilder {
 	b.request.Header.Add("Content-Type", value)
 	return b
 }
 
-func (b *reqBuilder) WithUserAgent(value string) *reqBuilder {
+func (b *ReqBuilder) WithUserAgent(value string) *ReqBuilder {
 	b.request.Header.Add("User-Agent", value)
 	return b
 }
 
-func (b *reqBuilder) WithMethod(method string) *reqBuilder {
+func (b *ReqBuilder) WithMethod(method string) *ReqBuilder {
 	b.request.Method = method
 	return b
 }
 
-func (b *reqBuilder) WithJSON(data string) *reqBuilder {
+func (b *ReqBuilder) WithJSON(data string) *ReqBuilder {
 	contentType := "application/json"
 	return b.WithContentType(contentType).WithHeader("Accept", contentType).WithBody(strings.NewReader(data))
 }
 
-func (b *reqBuilder) WithPostForm(data url.Values) *reqBuilder {
+func (b *ReqBuilder) WithPostForm(data url.Values) *ReqBuilder {
 	return b.WithContentType("application/x-www-form-urlencoded").WithBody(strings.NewReader(data.Encode()))
 }
 
-func (b *reqBuilder) WithBody(body io.Reader) *reqBuilder {
+func (b *ReqBuilder) WithBody(body io.Reader) *ReqBuilder {
 	rc, ok := body.(io.ReadCloser)
 	if !ok && body != nil {
 		rc = ioutil.NopCloser(body)
@@ -65,11 +65,11 @@ func (b *reqBuilder) WithBody(body io.Reader) *reqBuilder {
 	return b
 }
 
-func (b *reqBuilder) WithAuth(username, password string) *reqBuilder {
+func (b *ReqBuilder) WithAuth(username, password string) *ReqBuilder {
 	b.request.SetBasicAuth(username, password)
 	return b
 }
 
-func (b *reqBuilder) Build() *http.Request {
+func (b *ReqBuilder) Build() *http.Request {
 	return b.request
 }

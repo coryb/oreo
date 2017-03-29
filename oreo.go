@@ -263,7 +263,7 @@ func (c *Client) Get(urlStr string) (resp *http.Response, err error) {
 	if err != nil {
 		return nil, err
 	}
-	req := ReqBuilder(parsed).WithMethod("GET").Build()
+	req := RequestBuilder(parsed).WithMethod("GET").Build()
 	return c.Do(req)
 }
 
@@ -272,7 +272,7 @@ func (c *Client) Head(urlStr string) (resp *http.Response, err error) {
 	if err != nil {
 		return nil, err
 	}
-	req := ReqBuilder(parsed).WithMethod("HEAD").Build()
+	req := RequestBuilder(parsed).WithMethod("HEAD").Build()
 	return c.Do(req)
 }
 
@@ -281,7 +281,7 @@ func (c *Client) Post(urlStr string, bodyType string, body io.Reader) (resp *htt
 	if err != nil {
 		return nil, err
 	}
-	req := ReqBuilder(parsed).WithMethod("POST").WithContentType(bodyType).WithBody(body).Build()
+	req := RequestBuilder(parsed).WithMethod("POST").WithContentType(bodyType).WithBody(body).Build()
 	return c.Do(req)
 }
 
@@ -290,7 +290,7 @@ func (c *Client) PostForm(urlStr string, data url.Values) (resp *http.Response, 
 	if err != nil {
 		return nil, err
 	}
-	req := ReqBuilder(parsed).WithMethod("POST").WithPostForm(data).Build()
+	req := RequestBuilder(parsed).WithMethod("POST").WithPostForm(data).Build()
 	return c.Do(req)
 }
 
@@ -299,7 +299,7 @@ func (c *Client) PostJSON(urlStr string, jsonStr string) (resp *http.Response, e
 	if err != nil {
 		return nil, err
 	}
-	req := ReqBuilder(parsed).WithMethod("POST").WithJSON(jsonStr).Build()
+	req := RequestBuilder(parsed).WithMethod("POST").WithJSON(jsonStr).Build()
 	return c.Do(req)
 }
 
@@ -308,7 +308,7 @@ func (c *Client) Put(urlStr string, bodyType string, body io.Reader) (resp *http
 	if err != nil {
 		return nil, err
 	}
-	req := ReqBuilder(parsed).WithMethod("PUT").WithContentType(bodyType).WithBody(body).Build()
+	req := RequestBuilder(parsed).WithMethod("PUT").WithContentType(bodyType).WithBody(body).Build()
 	return c.Do(req)
 }
 
@@ -317,7 +317,7 @@ func (c *Client) PutJSON(urlStr, jsonStr string) (resp *http.Response, err error
 	if err != nil {
 		return nil, err
 	}
-	req := ReqBuilder(parsed).WithMethod("PUT").WithJSON(jsonStr).Build()
+	req := RequestBuilder(parsed).WithMethod("PUT").WithJSON(jsonStr).Build()
 	return c.Do(req)
 }
 
@@ -326,6 +326,6 @@ func (c *Client) Delete(urlStr string) (resp *http.Response, err error) {
 	if err != nil {
 		return nil, err
 	}
-	req := ReqBuilder(parsed).WithMethod("DELETE").Build()
+	req := RequestBuilder(parsed).WithMethod("DELETE").Build()
 	return c.Do(req)
 }
