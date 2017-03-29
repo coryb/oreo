@@ -11,39 +11,86 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
-	logging "github.com/op/go-logging"
 	"github.com/sethgrid/pester"
+	logging "gopkg.in/op/go-logging.v1"
 )
 
+type AfterRequestCallback func(*http.Request, *http.Response) (*http.Response, error)
+
 var log = logging.MustGetLogger("oreo")
-var CookieFile = filepath.Join(os.Getenv("HOME"), ".oreo-cookies.js")
+
+// var CookieFile = filepath.Join(os.Getenv("HOME"), ".oreo-cookies.js")
+
+var TraceRequestBody = false
+var TraceResponseBody = false
 
 type Client struct {
 	pester.Client
-	CookieFile   string
-	AfterRequest func(*http.Request, *http.Response) (*http.Response, error)
+	callback AfterRequestCallback
 
+	cookieFile           string
 	handlingAfterRequest bool
 }
 
 func New() *Client {
 	return &Client{
 		Client:               *pester.New(),
-		CookieFile:           CookieFile,
 		handlingAfterRequest: false,
 	}
 }
 
-func NewExtendedClient(hc *http.Client) *Client {
-	return &Client{
-		Client:               *pester.NewExtendedClient(hc),
-		CookieFile:           CookieFile,
-		handlingAfterRequest: false,
+func (c *Client) WithCookieFile(file string) *Client {
+	c.cookieFile = file
+	return c
+}
+
+func (c *Client) WithRetries(retries int) *Client {
+	c.MaxRetries = retries
+	return c
+}
+
+func (c *Client) WithTimeout(duration time.Duration) *Client {
+	c.Timeout = duration
+	return c
+}
+
+type BackoffStrategy int
+
+const (
+	CONSTANT_BACKOFF           BackoffStrategy = iota
+	EXPONENTIAL_BACKOFF        BackoffStrategy = iota
+	EXPONENTIAL_JITTER_BACKOFF BackoffStrategy = iota
+	LINEAR_BACKOFF             BackoffStrategy = iota
+	LINEAR_JITTER_BACKOFF      BackoffStrategy = iota
+)
+
+func (c *Client) WithBackoff(backoff BackoffStrategy) *Client {
+	switch backoff {
+	case CONSTANT_BACKOFF:
+		c.Backoff = pester.DefaultBackoff
+	case EXPONENTIAL_BACKOFF:
+		c.Backoff = pester.ExponentialBackoff
+	case EXPONENTIAL_JITTER_BACKOFF:
+		c.Backoff = pester.ExponentialJitterBackoff
+	case LINEAR_BACKOFF:
+		c.Backoff = pester.LinearBackoff
+	case LINEAR_JITTER_BACKOFF:
+		c.Backoff = pester.LinearJitterBackoff
 	}
+	return c
+}
+
+func (c *Client) WithTransport(transport *http.RoundTripper) *Client {
+	c.Transport = *transport
+	return c
+}
+
+func (c *Client) WithCallback(callback AfterRequestCallback) *Client {
+	c.callback = callback
+	return c
 }
 
 func (c *Client) initCookieJar() (err error) {
@@ -112,14 +159,14 @@ func (c *Client) saveCookies(resp *http.Response) error {
 		cookies = mergedCookies
 	}
 
-	err = os.MkdirAll(path.Dir(c.CookieFile), 0755)
+	err = os.MkdirAll(path.Dir(c.cookieFile), 0755)
 	if err != nil {
 		return err
 	}
-	fh, err := os.OpenFile(c.CookieFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	fh, err := os.OpenFile(c.cookieFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	defer fh.Close()
 	if err != nil {
-		log.Errorf("Failed to open %s: %s", c.CookieFile, err)
+		log.Errorf("Failed to open %s: %s", c.cookieFile, err)
 		os.Exit(1)
 	}
 	enc := json.NewEncoder(fh)
@@ -127,7 +174,7 @@ func (c *Client) saveCookies(resp *http.Response) error {
 }
 
 func (c *Client) loadCookies() ([]*http.Cookie, error) {
-	bytes, err := ioutil.ReadFile(CookieFile)
+	bytes, err := ioutil.ReadFile(c.cookieFile)
 	if err != nil && os.IsNotExist(err) {
 		// dont load cookies if the file does not exist
 		return nil, nil
@@ -147,96 +194,26 @@ func (c *Client) loadCookies() ([]*http.Cookie, error) {
 	return cookies, nil
 }
 
-func (c *Client) Get(url string) (*http.Response, error) {
-	return c.makeRequestWithoutContent("GET", url)
-}
+func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
+	err = c.initCookieJar()
+	if err != nil {
+		return nil, err
+	}
 
-func (c *Client) Head(url string) (*http.Response, error) {
-	return c.makeRequestWithoutContent("HEAD", url)
-}
-
-func (c *Client) Post(url, contentType string, body io.Reader) (*http.Response, error) {
-	return c.makeRequestWithContent("POST", url, contentType, body)
-}
-
-func (c *Client) PostForm(url string, data url.Values) (*http.Response, error) {
-	return c.makeRequestWithContent("POST", url, "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
-}
-
-func (c *Client) Put(url, contentType string, body io.Reader) (*http.Response, error) {
-	return c.makeRequestWithContent("PUT", url, contentType, body)
-}
-
-func (c *Client) Delete(url, contentType string, body io.Reader) (*http.Response, error) {
-	return c.makeRequestWithContent("DELETE", url, contentType, body)
-}
-
-type nopSeeker struct {
-	io.Reader
-}
-
-func (nopSeeker) Seek(int64, int) (int64, error) {
-	return 0, nil
-}
-
-func (c *Client) makeRequestWithContent(method, url, contentType string, body io.Reader) (resp *http.Response, err error) {
-	var content io.ReadSeeker = nopSeeker{body}
-
-	// AfterRequest may want to resubmit the request, so we
+	// Callback may want to resubmit the request, so we
 	// will need to rewind (Seek) the Reader back to start.
-	if c.AfterRequest != nil && !c.handlingAfterRequest {
-		bites, err := ioutil.ReadAll(body)
+	if c.callback != nil && !c.handlingAfterRequest && req.Body != nil {
+		bites, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			return nil, err
 		}
-		content = bytes.NewReader(bites)
+		req.Body = ioutil.NopCloser(bytes.NewReader(bites))
 	}
-	req, err := http.NewRequest(method, url, content)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", contentType)
-	log.Debugf("%s %s", req.Method, req.URL.String())
-	if resp, err = c.makeRequest(req); err != nil {
-		return nil, err
-	}
-	if c.AfterRequest != nil && !c.handlingAfterRequest {
-		content.Seek(0, 0)
-		c.handlingAfterRequest = true
-		defer func() {
-			c.handlingAfterRequest = false
-		}()
-		return c.AfterRequest(req, resp)
-	}
-	return resp, err
-}
 
-func (c *Client) makeRequestWithoutContent(method, uri string) (resp *http.Response, err error) {
-	req, err := http.NewRequest(method, uri, nil)
-	if err != nil {
-		return nil, err
-	}
-	log.Debugf("%s %s", req.Method, req.URL.String())
-	if resp, err = c.makeRequest(req); err != nil {
-		return nil, err
-	}
-	if c.AfterRequest != nil && !c.handlingAfterRequest {
-		c.handlingAfterRequest = true
-		defer func() {
-			c.handlingAfterRequest = false
-		}()
-		return c.AfterRequest(req, resp)
-	}
-	return resp, err
-}
-
-func (c *Client) makeRequest(req *http.Request) (resp *http.Response, err error) {
-	req.Header.Set("Accept", "application/json")
-
-	if log.IsEnabledFor(logging.DEBUG) {
+	if log.IsEnabledFor(logging.DEBUG) && TraceRequestBody {
 		// this is actually done in http.send but doing it
 		// here so we can log it in DumpRequest for debugging
-		for _, cookie := range c.Client.Jar.Cookies(req.URL) {
+		for _, cookie := range c.Jar.Cookies(req.URL) {
 			req.AddCookie(cookie)
 		}
 
@@ -244,17 +221,89 @@ func (c *Client) makeRequest(req *http.Request) (resp *http.Response, err error)
 		log.Debugf("Request: %s", out)
 	}
 
-	if resp, err = c.Client.Do(req); err != nil {
-		log.Errorf("Failed to %s %s: %s", req.Method, req.URL.String(), err)
+	log.Debugf("%s %s", req.Method, req.URL.String())
+	resp, err = c.Client.Do(req)
+	if err != nil {
 		return nil, err
 	}
 
-	if _, ok := resp.Header["Set-Cookie"]; ok {
-		c.saveCookies(resp)
+	err = c.saveCookies(resp)
+	if err != nil {
+		return nil, err
 	}
-	if log.IsEnabledFor(logging.DEBUG) {
+
+	if log.IsEnabledFor(logging.DEBUG) && TraceResponseBody {
 		out, _ := httputil.DumpResponse(resp, true)
 		log.Debugf("Response: %s", out)
 	}
-	return resp, nil
+
+	if c.callback != nil && !c.handlingAfterRequest {
+		if req.Body != nil {
+			rs, ok := req.Body.(io.ReadSeeker)
+			if ok {
+				rs.Seek(0, 0)
+			}
+		}
+		c.handlingAfterRequest = true
+		defer func() {
+			c.handlingAfterRequest = false
+		}()
+		return c.callback(req, resp)
+	}
+
+	return resp, err
+}
+
+func (c *Client) Get(urlStr string) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	req := ReqBuilder(parsed).WithMethod("GET").Build()
+	return c.Do(req)
+}
+
+func (c *Client) Head(urlStr string) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	req := ReqBuilder(parsed).WithMethod("HEAD").Build()
+	return c.Do(req)
+}
+
+func (c *Client) Post(urlStr string, bodyType string, body io.Reader) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	req := ReqBuilder(parsed).WithMethod("POST").WithContentType(bodyType).WithBody(body).Build()
+	return c.Do(req)
+}
+
+func (c *Client) PostForm(urlStr string, data url.Values) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	req := ReqBuilder(parsed).WithMethod("POST").WithPostForm(data).Build()
+	return c.Do(req)
+}
+
+func (c *Client) Put(urlStr string, body io.Reader) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	req := ReqBuilder(parsed).WithMethod("PUT").WithBody(body).Build()
+	return c.Do(req)
+}
+
+func (c *Client) Delete(urlStr string) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	req := ReqBuilder(parsed).WithMethod("DELETE").Build()
+	return c.Do(req)
 }

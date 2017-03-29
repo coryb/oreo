@@ -1,8 +1,8 @@
-hash: 83dd13b11ee19ef3b680259d185564b7281cb8a1a2fde2c10705179d2130c98f
-updated: 2016-10-10T12:31:10.2654599-07:00
+hash: c884dab305bb082c6d50fe6c90fb1792359f17a5a18c8539a69bfc350fdd6b08
+updated: 2017-03-28T16:57:34.876347633-07:00
 imports:
-- name: github.com/op/go-logging
-  version: b2cb9fa56473e98db8caba80237377e83fe44db5
 - name: github.com/sethgrid/pester
   version: 8053687f99650573b28fb75cddf3f295082704d7
+- name: gopkg.in/op/go-logging.v1
+  version: b2cb9fa56473e98db8caba80237377e83fe44db5
 testImports: []
