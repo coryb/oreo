@@ -48,7 +48,9 @@ func (c *Client) WithCookieFile(file string) *Client {
 }
 
 func (c *Client) WithRetries(retries int) *Client {
-	c.MaxRetries = retries
+	// pester MaxRetries is really a MaxAttempts, so if you
+	// want 2 retries that means 3 attempts
+	c.MaxRetries = retries + 1
 	return c
 }
 
@@ -83,8 +85,8 @@ func (c *Client) WithBackoff(backoff BackoffStrategy) *Client {
 	return c
 }
 
-func (c *Client) WithTransport(transport *http.RoundTripper) *Client {
-	c.Transport = *transport
+func (c *Client) WithTransport(transport http.RoundTripper) *Client {
+	c.Transport = transport
 	return c
 }
 
@@ -210,26 +212,28 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 		req.Body = ioutil.NopCloser(bytes.NewReader(bites))
 	}
 
-	if log.IsEnabledFor(logging.DEBUG) && TraceRequestBody {
-		// this is actually done in http.send but doing it
-		// here so we can log it in DumpRequest for debugging
-		for _, cookie := range c.Jar.Cookies(req.URL) {
-			req.AddCookie(cookie)
-		}
-
-		out, _ := httputil.DumpRequest(req, true)
-		log.Debugf("Request: %s", out)
-	}
-
 	log.Debugf("%s %s", req.Method, req.URL.String())
 	resp, err = c.Client.Do(req)
 	if err != nil {
+		if log.IsEnabledFor(logging.DEBUG) && TraceRequestBody {
+			out, _ := httputil.DumpRequest(req, true)
+			log.Debugf("Request: %s", out)
+		}
+
 		return nil, err
 	}
 
 	err = c.saveCookies(resp)
 	if err != nil {
 		return nil, err
+	}
+
+	// we log this after the request is made because http.send
+	// will modify the request to append cookies, so to see the
+	// cookies sent we need to log post-send.
+	if log.IsEnabledFor(logging.DEBUG) && TraceRequestBody {
+		out, _ := httputil.DumpRequest(req, true)
+		log.Debugf("Request: %s", out)
 	}
 
 	if log.IsEnabledFor(logging.DEBUG) && TraceResponseBody {
@@ -290,12 +294,30 @@ func (c *Client) PostForm(urlStr string, data url.Values) (resp *http.Response, 
 	return c.Do(req)
 }
 
-func (c *Client) Put(urlStr string, body io.Reader) (resp *http.Response, err error) {
+func (c *Client) PostJSON(urlStr string, jsonStr string) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	req := ReqBuilder(parsed).WithMethod("PUT").WithBody(body).Build()
+	req := ReqBuilder(parsed).WithMethod("POST").WithJSON(jsonStr).Build()
+	return c.Do(req)
+}
+
+func (c *Client) Put(urlStr string, bodyType string, body io.Reader) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	req := ReqBuilder(parsed).WithMethod("PUT").WithContentType(bodyType).WithBody(body).Build()
+	return c.Do(req)
+}
+
+func (c *Client) PutJSON(urlStr, jsonStr string) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	req := ReqBuilder(parsed).WithMethod("PUT").WithJSON(jsonStr).Build()
 	return c.Do(req)
 }
 
