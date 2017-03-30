@@ -47,6 +47,11 @@ func New() *Client {
 func (c *Client) WithCookieFile(file string) *Client {
 	cp := *c
 	cp.cookieFile = file
+	if cp.Jar != nil {
+		cp.Jar = nil
+	}
+	// need to reset cached http client with embedded jar
+	cp.Client.EmbedHTTPClient(nil)
 	return &cp
 }
 
@@ -61,6 +66,8 @@ func (c *Client) WithRetries(retries int) *Client {
 func (c *Client) WithTimeout(duration time.Duration) *Client {
 	cp := *c
 	cp.Timeout = duration
+	// need to reset cached http client with embedded timeout
+	cp.Client.EmbedHTTPClient(nil)
 	return &cp
 }
 
@@ -94,6 +101,8 @@ func (c *Client) WithBackoff(backoff BackoffStrategy) *Client {
 func (c *Client) WithTransport(transport http.RoundTripper) *Client {
 	cp := *c
 	cp.Transport = transport
+	// need to reset cached http client with embedded tranport
+	cp.Client.EmbedHTTPClient(nil)
 	return &cp
 }
 
@@ -116,6 +125,8 @@ func NoRedirect(req *http.Request, _ []*http.Request) error {
 func (c *Client) WithCheckRedirect(checkFunc func(*http.Request, []*http.Request) error) *Client {
 	cp := *c
 	cp.CheckRedirect = checkFunc
+	// need to reset cached http client with embedded CheckRedirect
+	cp.Client.EmbedHTTPClient(nil)
 	return &cp
 }
 
