@@ -373,3 +373,12 @@ func (c *Client) Delete(urlStr string) (resp *http.Response, err error) {
 	req := RequestBuilder(parsed).WithMethod("DELETE").Build()
 	return c.Do(req)
 }
+
+func (c *Client) DeleteJSON(urlStr string, jsonStr string) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	req := RequestBuilder(parsed).WithMethod("DELETE").WithJSON(jsonStr).Build()
+	return c.Do(req)
+}
