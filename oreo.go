@@ -18,7 +18,8 @@ import (
 	logging "gopkg.in/op/go-logging.v1"
 )
 
-type AfterRequestCallback func(*http.Request, *http.Response) (*http.Response, error)
+type PreRequestCallback func(*http.Request) (*http.Request, error)
+type PostRequestCallback func(*http.Request, *http.Response) (*http.Response, error)
 
 var log = logging.MustGetLogger("oreo")
 
@@ -29,16 +30,17 @@ var TraceResponseBody = false
 
 type Client struct {
 	pester.Client
-	callback AfterRequestCallback
+	preCallback  PreRequestCallback
+	postCallback PostRequestCallback
 
 	cookieFile           string
-	handlingAfterRequest bool
+	handlingPostCallback bool
 }
 
 func New() *Client {
 	return &Client{
 		Client:               *pester.New(),
-		handlingAfterRequest: false,
+		handlingPostCallback: false,
 	}
 }
 
@@ -90,8 +92,13 @@ func (c *Client) WithTransport(transport http.RoundTripper) *Client {
 	return c
 }
 
-func (c *Client) WithCallback(callback AfterRequestCallback) *Client {
-	c.callback = callback
+func (c *Client) WithPostCallback(callback PostRequestCallback) *Client {
+	c.postCallback = callback
+	return c
+}
+
+func (c *Client) WithPreCallback(callback PreRequestCallback) *Client {
+	c.preCallback = callback
 	return c
 }
 
@@ -206,6 +213,13 @@ func (c *Client) loadCookies() ([]*http.Cookie, error) {
 }
 
 func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
+	if c.preCallback != nil {
+		req, err = c.preCallback(req)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	err = c.initCookieJar()
 	if err != nil {
 		return nil, err
@@ -213,7 +227,7 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 
 	// Callback may want to resubmit the request, so we
 	// will need to rewind (Seek) the Reader back to start.
-	if c.callback != nil && !c.handlingAfterRequest && req.Body != nil {
+	if c.postCallback != nil && !c.handlingPostCallback && req.Body != nil {
 		bites, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			return nil, err
@@ -250,18 +264,18 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 		log.Debugf("Response: %s", out)
 	}
 
-	if c.callback != nil && !c.handlingAfterRequest {
+	if c.postCallback != nil && !c.handlingPostCallback {
 		if req.Body != nil {
 			rs, ok := req.Body.(io.ReadSeeker)
 			if ok {
 				rs.Seek(0, 0)
 			}
 		}
-		c.handlingAfterRequest = true
+		c.handlingPostCallback = true
 		defer func() {
-			c.handlingAfterRequest = false
+			c.handlingPostCallback = false
 		}()
-		return c.callback(req, resp)
+		return c.postCallback(req, resp)
 	}
 
 	return resp, err

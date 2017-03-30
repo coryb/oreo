@@ -290,7 +290,7 @@ func TestOreoWithTransport(t *testing.T) {
 
 }
 
-func TestOreoWithCallback(t *testing.T) {
+func TestOreoWithPostCallback(t *testing.T) {
 	requests := 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests++
@@ -315,13 +315,33 @@ func TestOreoWithCallback(t *testing.T) {
 		return resp, nil
 	}
 
-	c = New().WithCallback(callback)
+	c = New().WithPostCallback(callback)
 
 	resp, err := c.Get(ts.URL)
 	assert.NotNil(t, resp)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, called)
 	assert.Equal(t, 2, requests)
+}
+
+func TestOreoWithPreCallback(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, ok := r.Header["Authorization"]
+		assert.True(t, ok)
+		fmt.Fprintf(w, "OK")
+	}))
+	defer ts.Close()
+
+	callback := func(req *http.Request) (*http.Request, error) {
+		req.SetBasicAuth("user", "pass")
+		return req, nil
+	}
+
+	c := New().WithPreCallback(callback)
+
+	resp, err := c.Get(ts.URL)
+	assert.NotNil(t, resp)
+	assert.Nil(t, err)
 }
 
 func TestOreoWithRedirect(t *testing.T) {
