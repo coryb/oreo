@@ -338,6 +338,15 @@ func (c *Client) PostJSON(urlStr string, jsonStr string) (resp *http.Response, e
 	return c.Do(req)
 }
 
+func (c *Client) PostXML(urlStr string, xmlStr string) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	req := RequestBuilder(parsed).WithMethod("POST").WithXML(xmlStr).Build()
+	return c.Do(req)
+}
+
 func (c *Client) Put(urlStr string, bodyType string, body io.Reader) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {

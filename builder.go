@@ -52,6 +52,11 @@ func (b *ReqBuilder) WithJSON(data string) *ReqBuilder {
 	return b.WithContentType(contentType).WithHeader("Accept", contentType).WithBody(strings.NewReader(data))
 }
 
+func (b *ReqBuilder) WithXML(data string) *ReqBuilder {
+	contentType := "application/xml"
+	return b.WithContentType(contentType).WithHeader("Accept", contentType).WithBody(strings.NewReader(data))
+}
+
 func (b *ReqBuilder) WithPostForm(data url.Values) *ReqBuilder {
 	return b.WithContentType("application/x-www-form-urlencoded").WithBody(strings.NewReader(data.Encode()))
 }
