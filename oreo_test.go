@@ -383,3 +383,39 @@ func TestOreoWithNoRedirect(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, requests)
 }
+
+func TestOreoWithImmutability(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "OK")
+	}))
+	defer ts.Close()
+
+	result := ""
+	callback1 := func(req *http.Request) (*http.Request, error) {
+		result = "callback1"
+		return req, nil
+	}
+
+	callback2 := func(req *http.Request) (*http.Request, error) {
+		result = "callback2"
+		return req, nil
+	}
+
+	c1 := New().WithPreCallback(callback1)
+	c2 := c1.WithPreCallback(callback2)
+
+	resp, err := c1.Get(ts.URL)
+	assert.NotNil(t, resp)
+	assert.Nil(t, err)
+	assert.Equal(t, "callback1", result)
+
+	resp, err = c2.Get(ts.URL)
+	assert.NotNil(t, resp)
+	assert.Nil(t, err)
+	assert.Equal(t, "callback2", result)
+
+	resp, err = c1.Get(ts.URL)
+	assert.NotNil(t, resp)
+	assert.Nil(t, err)
+	assert.Equal(t, "callback1", result)
+}

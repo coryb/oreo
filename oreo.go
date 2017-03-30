@@ -45,20 +45,23 @@ func New() *Client {
 }
 
 func (c *Client) WithCookieFile(file string) *Client {
-	c.cookieFile = file
-	return c
+	cp := *c
+	cp.cookieFile = file
+	return &cp
 }
 
 func (c *Client) WithRetries(retries int) *Client {
+	cp := *c
 	// pester MaxRetries is really a MaxAttempts, so if you
 	// want 2 retries that means 3 attempts
-	c.MaxRetries = retries + 1
-	return c
+	cp.MaxRetries = retries + 1
+	return &cp
 }
 
 func (c *Client) WithTimeout(duration time.Duration) *Client {
-	c.Timeout = duration
-	return c
+	cp := *c
+	cp.Timeout = duration
+	return &cp
 }
 
 type BackoffStrategy int
@@ -72,34 +75,38 @@ const (
 )
 
 func (c *Client) WithBackoff(backoff BackoffStrategy) *Client {
+	cp := *c
 	switch backoff {
 	case CONSTANT_BACKOFF:
-		c.Backoff = pester.DefaultBackoff
+		cp.Backoff = pester.DefaultBackoff
 	case EXPONENTIAL_BACKOFF:
-		c.Backoff = pester.ExponentialBackoff
+		cp.Backoff = pester.ExponentialBackoff
 	case EXPONENTIAL_JITTER_BACKOFF:
-		c.Backoff = pester.ExponentialJitterBackoff
+		cp.Backoff = pester.ExponentialJitterBackoff
 	case LINEAR_BACKOFF:
-		c.Backoff = pester.LinearBackoff
+		cp.Backoff = pester.LinearBackoff
 	case LINEAR_JITTER_BACKOFF:
-		c.Backoff = pester.LinearJitterBackoff
+		cp.Backoff = pester.LinearJitterBackoff
 	}
-	return c
+	return &cp
 }
 
 func (c *Client) WithTransport(transport http.RoundTripper) *Client {
-	c.Transport = transport
-	return c
+	cp := *c
+	cp.Transport = transport
+	return &cp
 }
 
 func (c *Client) WithPostCallback(callback PostRequestCallback) *Client {
-	c.postCallback = callback
-	return c
+	cp := *c
+	cp.postCallback = callback
+	return &cp
 }
 
 func (c *Client) WithPreCallback(callback PreRequestCallback) *Client {
-	c.preCallback = callback
-	return c
+	cp := *c
+	cp.preCallback = callback
+	return &cp
 }
 
 func NoRedirect(req *http.Request, _ []*http.Request) error {
@@ -107,8 +114,13 @@ func NoRedirect(req *http.Request, _ []*http.Request) error {
 }
 
 func (c *Client) WithCheckRedirect(checkFunc func(*http.Request, []*http.Request) error) *Client {
-	c.CheckRedirect = checkFunc
-	return c
+	cp := *c
+	cp.CheckRedirect = checkFunc
+	return &cp
+}
+
+func (c *Client) WithoutRedirect() *Client {
+	return c.WithCheckRedirect(NoRedirect)
 }
 
 func (c *Client) initCookieJar() (err error) {
