@@ -336,6 +336,26 @@ func (c *Client) Get(urlStr string) (resp *http.Response, err error) {
 	return c.Do(req)
 }
 
+func (c *Client) GetJSON(urlStr string) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	contentType := "application/json"
+	req := RequestBuilder(parsed).WithMethod("GET").WithContentType(contentType).WithHeader("Accept", contentType).Build()
+	return c.Do(req)
+}
+
+func (c *Client) GetXML(urlStr string) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	contentType := "application/xml"
+	req := RequestBuilder(parsed).WithMethod("GET").WithContentType(contentType).WithHeader("Accept", contentType).Build()
+	return c.Do(req)
+}
+
 func (c *Client) Head(urlStr string) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
@@ -399,6 +419,15 @@ func (c *Client) PutJSON(urlStr, jsonStr string) (resp *http.Response, err error
 	return c.Do(req)
 }
 
+func (c *Client) PutXML(urlStr, xmlStr string) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	req := RequestBuilder(parsed).WithMethod("PUT").WithXML(xmlStr).Build()
+	return c.Do(req)
+}
+
 func (c *Client) Delete(urlStr string) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
@@ -414,5 +443,14 @@ func (c *Client) DeleteJSON(urlStr string, jsonStr string) (resp *http.Response,
 		return nil, err
 	}
 	req := RequestBuilder(parsed).WithMethod("DELETE").WithJSON(jsonStr).Build()
+	return c.Do(req)
+}
+
+func (c *Client) DeleteXML(urlStr string, xmlStr string) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	req := RequestBuilder(parsed).WithMethod("DELETE").WithXML(xmlStr).Build()
 	return c.Do(req)
 }
