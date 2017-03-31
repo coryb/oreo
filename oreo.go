@@ -30,8 +30,8 @@ var TraceResponseBody = false
 
 type Client struct {
 	pester.Client
-	preCallback  PreRequestCallback
-	postCallback PostRequestCallback
+	preCallbacks  []PreRequestCallback
+	postCallbacks []PostRequestCallback
 
 	cookieFile           string
 	handlingPostCallback bool
@@ -41,6 +41,8 @@ func New() *Client {
 	return &Client{
 		Client:               *pester.New(),
 		handlingPostCallback: false,
+		preCallbacks:         []PreRequestCallback{},
+		postCallbacks:        []PostRequestCallback{},
 	}
 }
 
@@ -108,18 +110,34 @@ func (c *Client) WithTransport(transport http.RoundTripper) *Client {
 
 func (c *Client) WithPostCallback(callback PostRequestCallback) *Client {
 	cp := *c
-	cp.postCallback = callback
+	cp.postCallbacks = append(cp.postCallbacks, callback)
+	return &cp
+}
+
+func (c *Client) WithoutPostCallbacks() *Client {
+	cp := *c
+	cp.postCallbacks = []PostRequestCallback{}
 	return &cp
 }
 
 func (c *Client) WithPreCallback(callback PreRequestCallback) *Client {
 	cp := *c
-	cp.preCallback = callback
+	cp.preCallbacks = append(cp.preCallbacks, callback)
+	return &cp
+}
+
+func (c *Client) WithoutPreCallbacks() *Client {
+	cp := *c
+	cp.preCallbacks = []PreRequestCallback{}
 	return &cp
 }
 
 func NoRedirect(req *http.Request, _ []*http.Request) error {
 	return http.ErrUseLastResponse
+}
+
+func (c *Client) WithoutCallbacks() *Client {
+	return c.WithoutPreCallbacks().WithoutPostCallbacks()
 }
 
 func (c *Client) WithCheckRedirect(checkFunc func(*http.Request, []*http.Request) error) *Client {
@@ -236,8 +254,8 @@ func (c *Client) loadCookies() ([]*http.Cookie, error) {
 }
 
 func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
-	if c.preCallback != nil {
-		req, err = c.preCallback(req)
+	for _, cb := range c.preCallbacks {
+		req, err = cb(req)
 		if err != nil {
 			return nil, err
 		}
@@ -250,7 +268,7 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 
 	// Callback may want to resubmit the request, so we
 	// will need to rewind (Seek) the Reader back to start.
-	if c.postCallback != nil && !c.handlingPostCallback && req.Body != nil {
+	if len(c.postCallbacks) > 0 && !c.handlingPostCallback && req.Body != nil {
 		bites, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			return nil, err
@@ -287,7 +305,7 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 		log.Debugf("Response: %s", out)
 	}
 
-	if c.postCallback != nil && !c.handlingPostCallback {
+	if len(c.postCallbacks) > 0 && !c.handlingPostCallback {
 		if req.Body != nil {
 			rs, ok := req.Body.(io.ReadSeeker)
 			if ok {
@@ -298,7 +316,12 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 		defer func() {
 			c.handlingPostCallback = false
 		}()
-		return c.postCallback(req, resp)
+		for _, cb := range c.postCallbacks {
+			resp, err = cb(req, resp)
+			if err != nil {
+				return resp, err
+			}
+		}
 	}
 
 	return resp, err
