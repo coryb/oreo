@@ -1,7 +1,10 @@
 package oreo
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -418,4 +421,36 @@ func TestOreoWithImmutability(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.Nil(t, err)
 	assert.Equal(t, "callback1", result)
+}
+
+func TestOreoPostCompressed(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "gzip", r.Header.Get("Content-Encoding"))
+
+		reader, err := gzip.NewReader(r.Body)
+		assert.Nil(t, err)
+		defer reader.Close()
+		buf := bytes.NewBufferString("")
+		_, err = io.Copy(buf, reader)
+		assert.Nil(t, err)
+
+		assert.Equal(t, []byte("DATA"), buf.Bytes())
+		contentLength := r.Header["Content-Type"][0]
+		assert.Equal(t, "text/plain", contentLength)
+
+		fmt.Fprintf(w, "OK")
+	}))
+	defer ts.Close()
+
+	c := New()
+	parsed, _ := url.Parse(ts.URL)
+	req := RequestBuilder(parsed).WithMethod("POST").WithContentType("text/plain").WithBody(strings.NewReader("DATA")).WithCompression().Build()
+	resp, err := c.Do(req)
+	assert.Nil(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, 200, resp.StatusCode)
+	body, _ := ioutil.ReadAll(resp.Body)
+	assert.Equal(t, []byte("OK"), body)
+	assert.Equal(t, int64(2), resp.ContentLength)
 }

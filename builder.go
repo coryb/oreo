@@ -1,6 +1,9 @@
 package oreo
 
 import (
+	"bytes"
+	"compress/gzip"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -67,6 +70,23 @@ func (b *ReqBuilder) WithBody(body io.Reader) *ReqBuilder {
 		rc = ioutil.NopCloser(body)
 	}
 	b.request.Body = rc
+	return b
+}
+
+func (b *ReqBuilder) WithCompression() *ReqBuilder {
+	if b.request.Body == nil {
+		panic(fmt.Errorf("oreo usage error: WithCompression called before WithBody"))
+	}
+	buf := bytes.NewBufferString("")
+	w := gzip.NewWriter(buf)
+	_, err := io.Copy(w, b.request.Body)
+	if err != nil {
+		panic(err)
+	}
+	w.Close()
+	b.request.Body.Close()
+	b.request.Body = ioutil.NopCloser(buf)
+	b.request.Header.Add("Content-Encoding", "gzip")
 	return b
 }
 
