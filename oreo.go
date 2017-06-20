@@ -3,6 +3,7 @@ package oreo
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/sethgrid/pester"
+	flock "github.com/theckman/go-flock"
 	logging "gopkg.in/op/go-logging.v1"
 )
 
@@ -218,6 +220,28 @@ func (c *Client) saveCookies(resp *http.Response) error {
 		cookies = mergedCookies
 	}
 
+	lockFile := fmt.Sprintf("%s.lock", c.cookieFile)
+	lock := flock.NewFlock(lockFile)
+	locked := false
+	for i := 0; i < 10; i++ {
+		locked, err = lock.TryLock()
+		if err != nil {
+			return err
+		}
+		if locked {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !locked {
+		log.Debugf("Failed to get lock for cookieFile within 100ms")
+		return nil
+	}
+	defer func() {
+		os.Remove(lockFile)
+		lock.Unlock()
+	}()
+
 	err = os.MkdirAll(path.Dir(c.cookieFile), 0755)
 	if err != nil {
 		return err
@@ -244,7 +268,7 @@ func (c *Client) loadCookies() ([]*http.Cookie, error) {
 	cookies := []*http.Cookie{}
 	err = json.Unmarshal(bytes, &cookies)
 	if err != nil {
-		return nil, err
+		log.Debugf("Failed to parse cookie file: %s", err)
 	}
 
 	if log.IsEnabledFor(logging.DEBUG) && os.Getenv("LOG_TRACE") != "" {
