@@ -3,6 +3,7 @@ package oreo
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/sethgrid/pester"
+	flock "github.com/theckman/go-flock"
 	logging "gopkg.in/op/go-logging.v1"
 )
 
@@ -175,6 +177,14 @@ func (c *Client) initCookieJar() (err error) {
 	return nil
 }
 
+type SaveCookieError struct {
+	err error
+}
+
+func (e *SaveCookieError) Error() string {
+	return fmt.Sprintf("Failed to save cookie file: %s", e.err)
+}
+
 func (c *Client) saveCookies(resp *http.Response) error {
 	if _, ok := resp.Header["Set-Cookie"]; !ok {
 		return nil
@@ -199,7 +209,7 @@ func (c *Client) saveCookies(resp *http.Response) error {
 
 	currentCookies, err := c.loadCookies()
 	if err != nil {
-		return err
+		return &SaveCookieError{err}
 	}
 	if currentCookies != nil {
 		currentCookiesByName := make(map[string]*http.Cookie)
@@ -218,18 +228,41 @@ func (c *Client) saveCookies(resp *http.Response) error {
 		cookies = mergedCookies
 	}
 
+	lockFile := fmt.Sprintf("%s.lock", c.cookieFile)
+	lock := flock.NewFlock(lockFile)
+	locked := false
+	for i := 0; i < 10; i++ {
+		locked, err = lock.TryLock()
+		if err != nil {
+			return &SaveCookieError{err}
+		}
+		if locked {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !locked {
+		return &SaveCookieError{fmt.Errorf("Failed to get lock for cookieFile within 100ms")}
+	}
+	defer func() {
+		os.Remove(lockFile)
+		lock.Unlock()
+	}()
+
 	err = os.MkdirAll(path.Dir(c.cookieFile), 0755)
 	if err != nil {
-		return err
+		return &SaveCookieError{err}
 	}
 	fh, err := os.OpenFile(c.cookieFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	defer fh.Close()
 	if err != nil {
-		log.Errorf("Failed to open %s: %s", c.cookieFile, err)
-		os.Exit(1)
+		return &SaveCookieError{fmt.Errorf("Failed to open %s: %s", c.cookieFile, err)}
 	}
 	enc := json.NewEncoder(fh)
-	return enc.Encode(cookies)
+	if err := enc.Encode(cookies); err != nil {
+		return &SaveCookieError{err}
+	}
+	return nil
 }
 
 func (c *Client) loadCookies() ([]*http.Cookie, error) {
@@ -244,7 +277,7 @@ func (c *Client) loadCookies() ([]*http.Cookie, error) {
 	cookies := []*http.Cookie{}
 	err = json.Unmarshal(bytes, &cookies)
 	if err != nil {
-		return nil, err
+		log.Debugf("Failed to parse cookie file: %s", err)
 	}
 
 	if log.IsEnabledFor(logging.DEBUG) && os.Getenv("LOG_TRACE") != "" {
@@ -287,11 +320,6 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 		return nil, err
 	}
 
-	err = c.saveCookies(resp)
-	if err != nil {
-		return nil, err
-	}
-
 	// we log this after the request is made because http.send
 	// will modify the request to append cookies, so to see the
 	// cookies sent we need to log post-send.
@@ -303,6 +331,11 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 	if log.IsEnabledFor(logging.DEBUG) && TraceResponseBody {
 		out, _ := httputil.DumpResponse(resp, true)
 		log.Debugf("Response: %s", out)
+	}
+
+	err = c.saveCookies(resp)
+	if err != nil {
+		return resp, err
 	}
 
 	if len(c.postCallbacks) > 0 && !c.handlingPostCallback {
