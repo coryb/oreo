@@ -168,7 +168,7 @@ func (c *Client) initCookieJar() (err error) {
 		return err
 	}
 	for _, cookie := range cookies {
-		url, err := url.Parse(cookie.Domain)
+		url, err := url.Parse(fmt.Sprintf("http://%s", cookie.Domain))
 		if err != nil {
 			return err
 		}
