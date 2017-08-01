@@ -310,27 +310,26 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 	}
 
 	log.Debugf("%s %s", req.Method, req.URL.String())
-	resp, err = c.Client.Do(req)
-	if err != nil {
-		if log.IsEnabledFor(logging.DEBUG) && TraceRequestBody {
-			out, _ := httputil.DumpRequest(req, true)
-			log.Debugf("Request: %s", out)
-		}
-
-		return nil, err
-	}
-
-	// we log this after the request is made because http.send
-	// will modify the request to append cookies, so to see the
-	// cookies sent we need to log post-send.
 	if log.IsEnabledFor(logging.DEBUG) && TraceRequestBody {
 		out, _ := httputil.DumpRequest(req, true)
 		log.Debugf("Request: %s", out)
 	}
 
-	if log.IsEnabledFor(logging.DEBUG) && TraceResponseBody {
-		out, _ := httputil.DumpResponse(resp, true)
-		log.Debugf("Response: %s", out)
+	resp, err = c.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// log any cookies sent b/c they will not be present until
+	// afater we call the `Do` func
+	if log.IsEnabledFor(logging.DEBUG) && TraceRequestBody {
+		for key, values := range req.Header {
+			if key == "Cookie" {
+				for _, cookie := range values {
+					log.Debugf("Cookie: %s", cookie)
+				}
+			}
+		}
 	}
 
 	err = c.saveCookies(resp)
