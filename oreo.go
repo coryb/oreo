@@ -186,6 +186,9 @@ func (e *SaveCookieError) Error() string {
 }
 
 func (c *Client) saveCookies(resp *http.Response) error {
+	if c.cookieFile == "" {
+		return nil
+	}
 	if _, ok := resp.Header["Set-Cookie"]; !ok {
 		return nil
 	}
