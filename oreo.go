@@ -195,13 +195,11 @@ func (c *Client) saveCookies(resp *http.Response) error {
 
 	cookies := resp.Cookies()
 	for _, cookie := range cookies {
-		if cookie.Domain == "" {
-			// if it is host:port then we need to split off port
-			parts := strings.Split(resp.Request.URL.Host, ":")
-			host := parts[0]
-			log.Debugf("Setting DOMAIN to %s for Cookie: %s", host, cookie)
-			cookie.Domain = host
-		}
+		// if it is host:port then we need to split off port
+		parts := strings.Split(resp.Request.URL.Host, ":")
+		host := parts[0]
+		log.Debugf("Setting DOMAIN to %s for Cookie: %s", host, cookie)
+		cookie.Domain = host
 	}
 
 	// expiry in one week from now
