@@ -302,12 +302,13 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 
 	// Callback may want to resubmit the request, so we
 	// will need to rewind (Seek) the Reader back to start.
+	var bodyCache []byte
 	if len(c.postCallbacks) > 0 && !c.handlingPostCallback && req.Body != nil {
-		bites, err := ioutil.ReadAll(req.Body)
+		bodyCache, err = ioutil.ReadAll(req.Body)
 		if err != nil {
 			return nil, err
 		}
-		req.Body = ioutil.NopCloser(bytes.NewReader(bites))
+		req.Body = ioutil.NopCloser(bytes.NewReader(bodyCache))
 	}
 
 	log.Debugf("%s %s", req.Method, req.URL.String())
@@ -343,11 +344,8 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 	}
 
 	if len(c.postCallbacks) > 0 && !c.handlingPostCallback {
-		if req.Body != nil {
-			rs, ok := req.Body.(io.ReadSeeker)
-			if ok {
-				rs.Seek(0, 0)
-			}
+		if len(bodyCache) > 0 {
+			req.Body = ioutil.NopCloser(bytes.NewReader(bodyCache))
 		}
 		c.handlingPostCallback = true
 		defer func() {
