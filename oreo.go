@@ -23,11 +23,11 @@ import (
 type PreRequestCallback func(*http.Request) (*http.Request, error)
 type PostRequestCallback func(*http.Request, *http.Response) (*http.Response, error)
 
-type logger interface {
+type Logger interface {
 	Debugf(format string, v ...interface{})
 }
 
-var Log logger = logging.MustGetLogger("oreo")
+var DefaultLog Logger = logging.MustGetLogger("oreo")
 
 // var CookieFile = filepath.Join(os.Getenv("HOME"), ".oreo-cookies.js")
 
@@ -41,6 +41,7 @@ type Client struct {
 
 	cookieFile           string
 	handlingPostCallback bool
+	log                  Logger
 }
 
 func New() *Client {
@@ -49,7 +50,14 @@ func New() *Client {
 		handlingPostCallback: false,
 		preCallbacks:         []PreRequestCallback{},
 		postCallbacks:        []PostRequestCallback{},
+		log:                  DefaultLog,
 	}
+}
+
+func (c *Client) WithLogger(log Logger) *Client {
+	cp := *c
+	cp.log = log
+	return &cp
 }
 
 func (c *Client) WithCookieFile(file string) *Client {
@@ -202,7 +210,7 @@ func (c *Client) saveCookies(resp *http.Response) error {
 		// if it is host:port then we need to split off port
 		parts := strings.Split(resp.Request.URL.Host, ":")
 		host := parts[0]
-		Log.Debugf("Setting DOMAIN to %s for Cookie: %s", host, cookie)
+		c.log.Debugf("Setting DOMAIN to %s for Cookie: %s", host, cookie)
 		cookie.Domain = host
 	}
 
@@ -282,11 +290,11 @@ func (c *Client) loadCookies() ([]*http.Cookie, error) {
 	cookies := []*http.Cookie{}
 	err = json.Unmarshal(bytes, &cookies)
 	if err != nil {
-		Log.Debugf("Failed to parse cookie file: %s", err)
+		c.log.Debugf("Failed to parse cookie file: %s", err)
 	}
 
 	if os.Getenv("LOG_TRACE") != "" {
-		Log.Debugf("Loading Cookies: %s", cookies)
+		c.log.Debugf("Loading Cookies: %s", cookies)
 	}
 	return cookies, nil
 }
@@ -315,10 +323,10 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 		req.Body = ioutil.NopCloser(bytes.NewReader(bodyCache))
 	}
 
-	Log.Debugf("%s %s", req.Method, req.URL.String())
+	c.log.Debugf("%s %s", req.Method, req.URL.String())
 	if TraceRequestBody {
 		out, _ := httputil.DumpRequest(req, true)
-		Log.Debugf("Request: %s", out)
+		c.log.Debugf("Request: %s", out)
 	}
 
 	resp, err = c.Client.Do(req)
@@ -331,7 +339,7 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 		for key, values := range req.Header {
 			if key == "Cookie" {
 				for _, cookie := range values {
-					Log.Debugf("Cookie: %s", cookie)
+					c.log.Debugf("Cookie: %s", cookie)
 				}
 			}
 		}
@@ -339,7 +347,7 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 
 	if TraceResponseBody {
 		out, _ := httputil.DumpResponse(resp, true)
-		Log.Debugf("Response: %s", out)
+		c.log.Debugf("Response: %s", out)
 	}
 
 	err = c.saveCookies(resp)
