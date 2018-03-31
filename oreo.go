@@ -23,7 +23,11 @@ import (
 type PreRequestCallback func(*http.Request) (*http.Request, error)
 type PostRequestCallback func(*http.Request, *http.Response) (*http.Response, error)
 
-var log = logging.MustGetLogger("oreo")
+type logger interface {
+	Debugf(format string, v ...interface{})
+}
+
+var Log logger = logging.MustGetLogger("oreo")
 
 // var CookieFile = filepath.Join(os.Getenv("HOME"), ".oreo-cookies.js")
 
@@ -198,7 +202,7 @@ func (c *Client) saveCookies(resp *http.Response) error {
 		// if it is host:port then we need to split off port
 		parts := strings.Split(resp.Request.URL.Host, ":")
 		host := parts[0]
-		log.Debugf("Setting DOMAIN to %s for Cookie: %s", host, cookie)
+		Log.Debugf("Setting DOMAIN to %s for Cookie: %s", host, cookie)
 		cookie.Domain = host
 	}
 
@@ -278,11 +282,11 @@ func (c *Client) loadCookies() ([]*http.Cookie, error) {
 	cookies := []*http.Cookie{}
 	err = json.Unmarshal(bytes, &cookies)
 	if err != nil {
-		log.Debugf("Failed to parse cookie file: %s", err)
+		Log.Debugf("Failed to parse cookie file: %s", err)
 	}
 
-	if log.IsEnabledFor(logging.DEBUG) && os.Getenv("LOG_TRACE") != "" {
-		log.Debugf("Loading Cookies: %s", cookies)
+	if os.Getenv("LOG_TRACE") != "" {
+		Log.Debugf("Loading Cookies: %s", cookies)
 	}
 	return cookies, nil
 }
@@ -311,10 +315,10 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 		req.Body = ioutil.NopCloser(bytes.NewReader(bodyCache))
 	}
 
-	log.Debugf("%s %s", req.Method, req.URL.String())
-	if log.IsEnabledFor(logging.DEBUG) && TraceRequestBody {
+	Log.Debugf("%s %s", req.Method, req.URL.String())
+	if TraceRequestBody {
 		out, _ := httputil.DumpRequest(req, true)
-		log.Debugf("Request: %s", out)
+		Log.Debugf("Request: %s", out)
 	}
 
 	resp, err = c.Client.Do(req)
@@ -323,19 +327,19 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 	}
 	// log any cookies sent b/c they will not be present until
 	// afater we call the `Do` func
-	if log.IsEnabledFor(logging.DEBUG) && TraceRequestBody {
+	if TraceRequestBody {
 		for key, values := range req.Header {
 			if key == "Cookie" {
 				for _, cookie := range values {
-					log.Debugf("Cookie: %s", cookie)
+					Log.Debugf("Cookie: %s", cookie)
 				}
 			}
 		}
 	}
 
-	if log.IsEnabledFor(logging.DEBUG) && TraceResponseBody {
+	if TraceResponseBody {
 		out, _ := httputil.DumpResponse(resp, true)
-		log.Debugf("Response: %s", out)
+		Log.Debugf("Response: %s", out)
 	}
 
 	err = c.saveCookies(resp)
