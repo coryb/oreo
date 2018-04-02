@@ -162,6 +162,10 @@ func (c *Client) WithCheckRedirect(checkFunc func(*http.Request, []*http.Request
 	return &cp
 }
 
+func (c *Client) WithRedirect() *Client {
+	return c.WithCheckRedirect(nil)
+}
+
 func (c *Client) WithoutRedirect() *Client {
 	return c.WithCheckRedirect(NoRedirect)
 }
