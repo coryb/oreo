@@ -3,6 +3,7 @@ package oreo
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -28,6 +29,11 @@ func RequestBuilder(u *url.URL) *ReqBuilder {
 			Host:       u.Host,
 		},
 	}
+}
+
+func (b *ReqBuilder) WithContext(ctx context.Context) *ReqBuilder {
+	b.request = b.request.WithContext(ctx)
+	return b
 }
 
 func (b *ReqBuilder) WithHeader(name, value string) *ReqBuilder {
