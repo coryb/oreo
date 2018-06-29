@@ -347,6 +347,68 @@ func TestOreoWithPreCallback(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestOreoWithPreCallbackCopy(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, ok := r.Header["Authorization"]
+		if ok {
+			fmt.Fprintf(w, "OK")
+		} else {
+			http.Error(w, "error", http.StatusUnauthorized)
+		}
+	}))
+	defer ts.Close()
+
+	callback := func(req *http.Request) (*http.Request, error) {
+		req.SetBasicAuth("user", "pass")
+		return req, nil
+	}
+
+	c := New()
+	other := c.WithPreCallback(callback)
+
+	resp, err := c.Get(ts.URL)
+	assert.NotNil(t, resp)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+
+	resp, err = other.Get(ts.URL)
+	assert.NotNil(t, resp)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func TestOreoWithCookieJarCopy(t *testing.T) {
+	t.Skip("Cookie jars are currently shared between copies of *oreo.Client.")
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "OK")
+	}))
+	defer ts.Close()
+
+	c := New()
+	err := c.initCookieJar()
+	assert.Nil(t, err)
+
+	other := c.WithRetries(0)
+
+	tsURL, err := url.Parse(ts.URL)
+	assert.Nil(t, err)
+
+	c.Jar.SetCookies(tsURL, []*http.Cookie{
+		{
+			Name: "test",
+		},
+	})
+
+	cookies := other.Jar.Cookies(tsURL)
+	foundTestCookie := false
+	for _, cookie := range cookies {
+		if cookie.Name == "test" {
+			foundTestCookie = true
+		}
+	}
+	assert.False(t, foundTestCookie)
+}
+
 func TestOreoWithRedirect(t *testing.T) {
 	requests := 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
