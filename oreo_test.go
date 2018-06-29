@@ -3,6 +3,7 @@ package oreo
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -31,7 +32,7 @@ func TestOreoGet(t *testing.T) {
 	defer ts.Close()
 
 	c := New()
-	resp, err := c.Get(ts.URL)
+	resp, err := c.Get(context.Background(), ts.URL)
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 200, resp.StatusCode)
@@ -47,7 +48,7 @@ func TestOreoHead(t *testing.T) {
 	defer ts.Close()
 
 	c := New()
-	resp, err := c.Head(ts.URL)
+	resp, err := c.Head(context.Background(), ts.URL)
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 200, resp.StatusCode)
@@ -69,7 +70,7 @@ func TestOreoPost(t *testing.T) {
 	defer ts.Close()
 
 	c := New()
-	resp, err := c.Post(ts.URL, "text/plain", strings.NewReader("DATA"))
+	resp, err := c.Post(context.Background(), ts.URL, "text/plain", strings.NewReader("DATA"))
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 200, resp.StatusCode)
@@ -93,7 +94,7 @@ func TestOreoPostForm(t *testing.T) {
 	c := New()
 	data := url.Values{}
 	data.Add("key", "value")
-	resp, err := c.PostForm(ts.URL, data)
+	resp, err := c.PostForm(context.Background(), ts.URL, data)
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 200, resp.StatusCode)
@@ -115,7 +116,7 @@ func TestOreoPostJSON(t *testing.T) {
 	defer ts.Close()
 
 	c := New()
-	resp, err := c.PostJSON(ts.URL, `{"key":"value"}`)
+	resp, err := c.PostJSON(context.Background(), ts.URL, `{"key":"value"}`)
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 200, resp.StatusCode)
@@ -137,7 +138,7 @@ func TestOreoPut(t *testing.T) {
 	defer ts.Close()
 
 	c := New()
-	resp, err := c.Put(ts.URL, "text/plain", strings.NewReader("DATA"))
+	resp, err := c.Put(context.Background(), ts.URL, "text/plain", strings.NewReader("DATA"))
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 200, resp.StatusCode)
@@ -159,7 +160,7 @@ func TestOreoPutJSON(t *testing.T) {
 	defer ts.Close()
 
 	c := New()
-	resp, err := c.PutJSON(ts.URL, `{"key":"value"}`)
+	resp, err := c.PutJSON(context.Background(), ts.URL, `{"key":"value"}`)
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 200, resp.StatusCode)
@@ -176,12 +177,34 @@ func TestOreoDelete(t *testing.T) {
 	defer ts.Close()
 
 	c := New()
-	resp, err := c.Delete(ts.URL)
+	resp, err := c.Delete(context.Background(), ts.URL)
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, 200, resp.StatusCode)
 	body, _ := ioutil.ReadAll(resp.Body)
 	assert.Equal(t, []byte("OK"), body)
+}
+
+func TestOreoWithContext(t *testing.T) {
+	waitc := make(chan struct{})
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-waitc
+		fmt.Fprintf(w, "OK")
+	}))
+	defer ts.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	c := New()
+
+	go func() {
+		cancel()
+	}()
+
+	resp, err := c.Get(ctx, ts.URL)
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+	assert.Equal(t, ctx.Err(), context.Canceled)
+	close(waitc)
 }
 
 func TestOreoWithRetries(t *testing.T) {
@@ -193,7 +216,7 @@ func TestOreoWithRetries(t *testing.T) {
 	defer ts.Close()
 
 	c := New().WithRetries(2)
-	resp, err := c.Get(ts.URL)
+	resp, err := c.Get(context.Background(), ts.URL)
 	assert.Nil(t, err)
 	assert.Equal(t, 3, attempts)
 	assert.NotNil(t, resp)
@@ -209,7 +232,7 @@ func TestOreoWithTimeout(t *testing.T) {
 
 	c := New().WithTimeout(1 * time.Second).WithRetries(2)
 	start := time.Now().Unix()
-	resp, err := c.Get(ts.URL)
+	resp, err := c.Get(context.Background(), ts.URL)
 	end := time.Now().Unix()
 	assert.Nil(t, resp)
 	assert.Error(t, err)
@@ -226,7 +249,7 @@ func TestOreoWithLinearTimeout(t *testing.T) {
 	c := New().WithTimeout(1 * time.Second).WithBackoff(LINEAR_BACKOFF).WithRetries(2)
 
 	start := time.Now().Unix()
-	resp, err := c.Get(ts.URL)
+	resp, err := c.Get(context.Background(), ts.URL)
 	end := time.Now().Unix()
 	assert.Nil(t, resp)
 	assert.Error(t, err)
@@ -260,12 +283,12 @@ func TestOreoWithCookieFile(t *testing.T) {
 
 	c := New().WithCookieFile(tmpFile.Name())
 	// first request will get a cookie set on response
-	resp, err := c.Get(ts.URL)
+	resp, err := c.Get(context.Background(), ts.URL)
 	assert.NotNil(t, resp)
 	assert.Nil(t, err)
 
 	/// this request should automatically send cookie back to server
-	resp, err = c.Get(ts.URL)
+	resp, err = c.Get(context.Background(), ts.URL)
 	assert.NotNil(t, resp)
 	assert.Nil(t, err)
 }
@@ -283,7 +306,7 @@ func TestOreoWithTransport(t *testing.T) {
 	// test against google dns servers, we will get a tcp connection
 	//  failure (timeout due to firewall) to a non dns port on those hosts
 	start := time.Now().Unix()
-	resp, err := c.Get("http://8.8.8.8:9999")
+	resp, err := c.Get(context.Background(), "http://8.8.8.8:9999")
 	end := time.Now().Unix()
 	assert.Nil(t, resp)
 	assert.Error(t, err)
@@ -320,7 +343,7 @@ func TestOreoWithPostCallback(t *testing.T) {
 
 	c = New().WithPostCallback(callback)
 
-	resp, err := c.Get(ts.URL)
+	resp, err := c.Get(context.Background(), ts.URL)
 	assert.NotNil(t, resp)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, called)
@@ -342,7 +365,7 @@ func TestOreoWithPreCallback(t *testing.T) {
 
 	c := New().WithPreCallback(callback)
 
-	resp, err := c.Get(ts.URL)
+	resp, err := c.Get(context.Background(), ts.URL)
 	assert.NotNil(t, resp)
 	assert.Nil(t, err)
 }
@@ -361,7 +384,7 @@ func TestOreoWithRedirect(t *testing.T) {
 
 	c := New()
 
-	resp, err := c.Get(ts.URL)
+	resp, err := c.Get(context.Background(), ts.URL)
 	assert.NotNil(t, resp)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, requests)
@@ -381,7 +404,7 @@ func TestOreoWithNoRedirect(t *testing.T) {
 
 	c := New().WithCheckRedirect(NoRedirect)
 
-	resp, err := c.Get(ts.URL)
+	resp, err := c.Get(context.Background(), ts.URL)
 	assert.NotNil(t, resp)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, requests)
@@ -407,17 +430,17 @@ func TestOreoWithImmutability(t *testing.T) {
 	c1 := New().WithPreCallback(callback1)
 	c2 := c1.WithPreCallback(callback2)
 
-	resp, err := c1.Get(ts.URL)
+	resp, err := c1.Get(context.Background(), ts.URL)
 	assert.NotNil(t, resp)
 	assert.Nil(t, err)
 	assert.Equal(t, "callback1", result)
 
-	resp, err = c2.Get(ts.URL)
+	resp, err = c2.Get(context.Background(), ts.URL)
 	assert.NotNil(t, resp)
 	assert.Nil(t, err)
 	assert.Equal(t, "callback2", result)
 
-	resp, err = c1.Get(ts.URL)
+	resp, err = c1.Get(context.Background(), ts.URL)
 	assert.NotNil(t, resp)
 	assert.Nil(t, err)
 	assert.Equal(t, "callback1", result)

@@ -2,6 +2,7 @@ package oreo
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -378,130 +379,130 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 	return resp, err
 }
 
-func (c *Client) Get(urlStr string) (resp *http.Response, err error) {
+func (c *Client) Get(ctx context.Context, urlStr string) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	req := RequestBuilder(parsed).WithMethod("GET").Build()
+	req := RequestBuilder(parsed).WithContext(ctx).WithMethod("GET").Build()
 	return c.Do(req)
 }
 
-func (c *Client) GetJSON(urlStr string) (resp *http.Response, err error) {
+func (c *Client) GetJSON(ctx context.Context, urlStr string) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
 	contentType := "application/json"
-	req := RequestBuilder(parsed).WithMethod("GET").WithContentType(contentType).WithHeader("Accept", contentType).Build()
+	req := RequestBuilder(parsed).WithContext(ctx).WithMethod("GET").WithContentType(contentType).WithHeader("Accept", contentType).Build()
 	return c.Do(req)
 }
 
-func (c *Client) GetXML(urlStr string) (resp *http.Response, err error) {
+func (c *Client) GetXML(ctx context.Context, urlStr string) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
 	contentType := "application/xml"
-	req := RequestBuilder(parsed).WithMethod("GET").WithContentType(contentType).WithHeader("Accept", contentType).Build()
+	req := RequestBuilder(parsed).WithContext(ctx).WithMethod("GET").WithContentType(contentType).WithHeader("Accept", contentType).Build()
 	return c.Do(req)
 }
 
-func (c *Client) Head(urlStr string) (resp *http.Response, err error) {
+func (c *Client) Head(ctx context.Context, urlStr string) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	req := RequestBuilder(parsed).WithMethod("HEAD").Build()
+	req := RequestBuilder(parsed).WithContext(ctx).WithMethod("HEAD").Build()
 	return c.Do(req)
 }
 
-func (c *Client) Post(urlStr string, bodyType string, body io.Reader) (resp *http.Response, err error) {
+func (c *Client) Post(ctx context.Context, urlStr string, bodyType string, body io.Reader) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	req := RequestBuilder(parsed).WithMethod("POST").WithContentType(bodyType).WithBody(body).Build()
+	req := RequestBuilder(parsed).WithContext(ctx).WithMethod("POST").WithContentType(bodyType).WithBody(body).Build()
 	return c.Do(req)
 }
 
-func (c *Client) PostForm(urlStr string, data url.Values) (resp *http.Response, err error) {
+func (c *Client) PostForm(ctx context.Context, urlStr string, data url.Values) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	req := RequestBuilder(parsed).WithMethod("POST").WithPostForm(data).Build()
+	req := RequestBuilder(parsed).WithContext(ctx).WithMethod("POST").WithPostForm(data).Build()
 	return c.Do(req)
 }
 
-func (c *Client) PostJSON(urlStr string, jsonStr string) (resp *http.Response, err error) {
+func (c *Client) PostJSON(ctx context.Context, urlStr string, jsonStr string) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	req := RequestBuilder(parsed).WithMethod("POST").WithJSON(jsonStr).Build()
+	req := RequestBuilder(parsed).WithContext(ctx).WithMethod("POST").WithJSON(jsonStr).Build()
 	return c.Do(req)
 }
 
-func (c *Client) PostXML(urlStr string, xmlStr string) (resp *http.Response, err error) {
+func (c *Client) PostXML(ctx context.Context, urlStr string, xmlStr string) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	req := RequestBuilder(parsed).WithMethod("POST").WithXML(xmlStr).Build()
+	req := RequestBuilder(parsed).WithContext(ctx).WithMethod("POST").WithXML(xmlStr).Build()
 	return c.Do(req)
 }
 
-func (c *Client) Put(urlStr string, bodyType string, body io.Reader) (resp *http.Response, err error) {
+func (c *Client) Put(ctx context.Context, urlStr string, bodyType string, body io.Reader) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	req := RequestBuilder(parsed).WithMethod("PUT").WithContentType(bodyType).WithBody(body).Build()
+	req := RequestBuilder(parsed).WithContext(ctx).WithMethod("PUT").WithContentType(bodyType).WithBody(body).Build()
 	return c.Do(req)
 }
 
-func (c *Client) PutJSON(urlStr, jsonStr string) (resp *http.Response, err error) {
+func (c *Client) PutJSON(ctx context.Context, urlStr, jsonStr string) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	req := RequestBuilder(parsed).WithMethod("PUT").WithJSON(jsonStr).Build()
+	req := RequestBuilder(parsed).WithContext(ctx).WithMethod("PUT").WithJSON(jsonStr).Build()
 	return c.Do(req)
 }
 
-func (c *Client) PutXML(urlStr, xmlStr string) (resp *http.Response, err error) {
+func (c *Client) PutXML(ctx context.Context, urlStr, xmlStr string) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	req := RequestBuilder(parsed).WithMethod("PUT").WithXML(xmlStr).Build()
+	req := RequestBuilder(parsed).WithContext(ctx).WithMethod("PUT").WithXML(xmlStr).Build()
 	return c.Do(req)
 }
 
-func (c *Client) Delete(urlStr string) (resp *http.Response, err error) {
+func (c *Client) Delete(ctx context.Context, urlStr string) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	req := RequestBuilder(parsed).WithMethod("DELETE").Build()
+	req := RequestBuilder(parsed).WithContext(ctx).WithMethod("DELETE").Build()
 	return c.Do(req)
 }
 
-func (c *Client) DeleteJSON(urlStr string, jsonStr string) (resp *http.Response, err error) {
+func (c *Client) DeleteJSON(ctx context.Context, urlStr string, jsonStr string) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	req := RequestBuilder(parsed).WithMethod("DELETE").WithJSON(jsonStr).Build()
+	req := RequestBuilder(parsed).WithContext(ctx).WithMethod("DELETE").WithJSON(jsonStr).Build()
 	return c.Do(req)
 }
 
-func (c *Client) DeleteXML(urlStr string, xmlStr string) (resp *http.Response, err error) {
+func (c *Client) DeleteXML(ctx context.Context, urlStr string, xmlStr string) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	req := RequestBuilder(parsed).WithMethod("DELETE").WithXML(xmlStr).Build()
+	req := RequestBuilder(parsed).WithContext(ctx).WithMethod("DELETE").WithXML(xmlStr).Build()
 	return c.Do(req)
 }
