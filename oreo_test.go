@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -19,18 +20,18 @@ import (
 )
 
 func init() {
-	TraceRequestBody = true
-	TraceResponseBody = true
+	DefaultLogger = log.New(os.Stderr, "", log.LstdFlags)
 }
 
 func TestOreoGet(t *testing.T) {
+	t.Parallel()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
 		fmt.Fprintf(w, "OK")
 	}))
 	defer ts.Close()
 
-	c := New()
+	c := New().WithTrace(true)
 	resp, err := c.Get(ts.URL)
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
@@ -40,13 +41,14 @@ func TestOreoGet(t *testing.T) {
 }
 
 func TestOreoHead(t *testing.T) {
+	t.Parallel()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "HEAD", r.Method)
 		fmt.Fprintf(w, "OK")
 	}))
 	defer ts.Close()
 
-	c := New()
+	c := New().WithTrace(true)
 	resp, err := c.Head(ts.URL)
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
@@ -57,6 +59,7 @@ func TestOreoHead(t *testing.T) {
 }
 
 func TestOreoPost(t *testing.T) {
+	t.Parallel()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		body, _ := ioutil.ReadAll(r.Body)
@@ -68,7 +71,7 @@ func TestOreoPost(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := New()
+	c := New().WithTrace(true)
 	resp, err := c.Post(ts.URL, "text/plain", strings.NewReader("DATA"))
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
@@ -79,6 +82,7 @@ func TestOreoPost(t *testing.T) {
 }
 
 func TestOreoPostForm(t *testing.T) {
+	t.Parallel()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		body, _ := ioutil.ReadAll(r.Body)
@@ -90,7 +94,7 @@ func TestOreoPostForm(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := New()
+	c := New().WithTrace(true)
 	data := url.Values{}
 	data.Add("key", "value")
 	resp, err := c.PostForm(ts.URL, data)
@@ -103,6 +107,7 @@ func TestOreoPostForm(t *testing.T) {
 }
 
 func TestOreoPostJSON(t *testing.T) {
+	t.Parallel()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		body, _ := ioutil.ReadAll(r.Body)
@@ -114,7 +119,7 @@ func TestOreoPostJSON(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := New()
+	c := New().WithTrace(true)
 	resp, err := c.PostJSON(ts.URL, `{"key":"value"}`)
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
@@ -125,6 +130,7 @@ func TestOreoPostJSON(t *testing.T) {
 }
 
 func TestOreoPut(t *testing.T) {
+	t.Parallel()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "PUT", r.Method)
 		body, _ := ioutil.ReadAll(r.Body)
@@ -136,7 +142,7 @@ func TestOreoPut(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := New()
+	c := New().WithTrace(true)
 	resp, err := c.Put(ts.URL, "text/plain", strings.NewReader("DATA"))
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
@@ -147,6 +153,7 @@ func TestOreoPut(t *testing.T) {
 }
 
 func TestOreoPutJSON(t *testing.T) {
+	t.Parallel()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "PUT", r.Method)
 		body, _ := ioutil.ReadAll(r.Body)
@@ -158,7 +165,7 @@ func TestOreoPutJSON(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := New()
+	c := New().WithTrace(true)
 	resp, err := c.PutJSON(ts.URL, `{"key":"value"}`)
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
@@ -169,13 +176,14 @@ func TestOreoPutJSON(t *testing.T) {
 }
 
 func TestOreoDelete(t *testing.T) {
+	t.Parallel()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "DELETE", r.Method)
 		fmt.Fprintf(w, "OK")
 	}))
 	defer ts.Close()
 
-	c := New()
+	c := New().WithTrace(true)
 	resp, err := c.Delete(ts.URL)
 	assert.Nil(t, err)
 	assert.NotNil(t, resp)
@@ -185,6 +193,7 @@ func TestOreoDelete(t *testing.T) {
 }
 
 func TestOreoWithRetries(t *testing.T) {
+	t.Parallel()
 	attempts := 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attempts++
@@ -192,7 +201,7 @@ func TestOreoWithRetries(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := New().WithRetries(2)
+	c := New().WithTrace(true).WithRetries(2)
 	resp, err := c.Get(ts.URL)
 	assert.Nil(t, err)
 	assert.Equal(t, 3, attempts)
@@ -201,13 +210,14 @@ func TestOreoWithRetries(t *testing.T) {
 }
 
 func TestOreoWithTimeout(t *testing.T) {
+	t.Parallel()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second)
 		http.Error(w, "error", http.StatusInternalServerError)
 	}))
 	defer ts.Close()
 
-	c := New().WithTimeout(1 * time.Second).WithRetries(2)
+	c := New().WithTrace(true).WithTimeout(1 * time.Second).WithRetries(2)
 	start := time.Now().Unix()
 	resp, err := c.Get(ts.URL)
 	end := time.Now().Unix()
@@ -217,13 +227,14 @@ func TestOreoWithTimeout(t *testing.T) {
 }
 
 func TestOreoWithLinearTimeout(t *testing.T) {
+	t.Parallel()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second)
 		http.Error(w, "error", http.StatusInternalServerError)
 	}))
 	defer ts.Close()
 
-	c := New().WithTimeout(1 * time.Second).WithBackoff(LINEAR_BACKOFF).WithRetries(2)
+	c := New().WithTrace(true).WithTimeout(1 * time.Second).WithBackoff(LINEAR_BACKOFF).WithRetries(2)
 
 	start := time.Now().Unix()
 	resp, err := c.Get(ts.URL)
@@ -234,6 +245,7 @@ func TestOreoWithLinearTimeout(t *testing.T) {
 }
 
 func TestOreoWithCookieFile(t *testing.T) {
+	t.Parallel()
 	request := 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		request++
@@ -258,7 +270,7 @@ func TestOreoWithCookieFile(t *testing.T) {
 	tmpFile.Close()
 	os.Remove(tmpFile.Name())
 
-	c := New().WithCookieFile(tmpFile.Name())
+	c := New().WithTrace(true).WithCookieFile(tmpFile.Name())
 	// first request will get a cookie set on response
 	resp, err := c.Get(ts.URL)
 	assert.NotNil(t, resp)
@@ -271,6 +283,7 @@ func TestOreoWithCookieFile(t *testing.T) {
 }
 
 func TestOreoWithTransport(t *testing.T) {
+	t.Parallel()
 	// set tcp connect timeout to 5s
 	var netTransport = &http.Transport{
 		Dial: (&net.Dialer{
@@ -278,7 +291,7 @@ func TestOreoWithTransport(t *testing.T) {
 		}).Dial,
 	}
 
-	c := New().WithTransport(netTransport).WithRetries(0)
+	c := New().WithTrace(true).WithTransport(netTransport).WithRetries(0)
 
 	// test against google dns servers, we will get a tcp connection
 	//  failure (timeout due to firewall) to a non dns port on those hosts
@@ -294,6 +307,7 @@ func TestOreoWithTransport(t *testing.T) {
 }
 
 func TestOreoWithPostCallback(t *testing.T) {
+	t.Parallel()
 	requests := 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests++
@@ -318,7 +332,7 @@ func TestOreoWithPostCallback(t *testing.T) {
 		return resp, nil
 	}
 
-	c = New().WithPostCallback(callback)
+	c = New().WithTrace(true).WithPostCallback(callback)
 
 	resp, err := c.Get(ts.URL)
 	assert.NotNil(t, resp)
@@ -328,6 +342,7 @@ func TestOreoWithPostCallback(t *testing.T) {
 }
 
 func TestOreoWithPreCallback(t *testing.T) {
+	t.Parallel()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, ok := r.Header["Authorization"]
 		assert.True(t, ok)
@@ -340,7 +355,7 @@ func TestOreoWithPreCallback(t *testing.T) {
 		return req, nil
 	}
 
-	c := New().WithPreCallback(callback)
+	c := New().WithTrace(true).WithPreCallback(callback)
 
 	resp, err := c.Get(ts.URL)
 	assert.NotNil(t, resp)
@@ -348,6 +363,7 @@ func TestOreoWithPreCallback(t *testing.T) {
 }
 
 func TestOreoWithRedirect(t *testing.T) {
+	t.Parallel()
 	requests := 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests++
@@ -359,7 +375,7 @@ func TestOreoWithRedirect(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := New()
+	c := New().WithTrace(true)
 
 	resp, err := c.Get(ts.URL)
 	assert.NotNil(t, resp)
@@ -368,6 +384,7 @@ func TestOreoWithRedirect(t *testing.T) {
 }
 
 func TestOreoWithNoRedirect(t *testing.T) {
+	t.Parallel()
 	requests := 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests++
@@ -379,7 +396,7 @@ func TestOreoWithNoRedirect(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := New().WithCheckRedirect(NoRedirect)
+	c := New().WithTrace(true).WithCheckRedirect(NoRedirect)
 
 	resp, err := c.Get(ts.URL)
 	assert.NotNil(t, resp)
@@ -388,6 +405,7 @@ func TestOreoWithNoRedirect(t *testing.T) {
 }
 
 func TestOreoWithImmutability(t *testing.T) {
+	t.Parallel()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "OK")
 	}))
@@ -404,7 +422,7 @@ func TestOreoWithImmutability(t *testing.T) {
 		return req, nil
 	}
 
-	c1 := New().WithPreCallback(callback1)
+	c1 := New().WithTrace(true).WithPreCallback(callback1)
 	c2 := c1.WithPreCallback(callback2)
 
 	resp, err := c1.Get(ts.URL)
@@ -424,6 +442,7 @@ func TestOreoWithImmutability(t *testing.T) {
 }
 
 func TestOreoPostCompressed(t *testing.T) {
+	t.Parallel()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "gzip", r.Header.Get("Content-Encoding"))
@@ -443,7 +462,7 @@ func TestOreoPostCompressed(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := New()
+	c := New().WithTrace(true)
 	parsed, _ := url.Parse(ts.URL)
 	req := RequestBuilder(parsed).WithMethod("POST").WithContentType("text/plain").WithBody(strings.NewReader("DATA")).WithCompression().Build()
 	resp, err := c.Do(req)
