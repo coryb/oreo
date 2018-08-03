@@ -341,6 +341,7 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 		resp, err = c.Client.Do(req)
 		if err != nil {
 			if c.traceRequestBody {
+				rewindRequest(req)
 				out, _ := httputil.DumpRequestOut(req, true)
 				c.log.Printf("Request %d: %s", attempt, out)
 			}
@@ -349,6 +350,7 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 			// will modify the request to append cookies, so to see the
 			// cookies sent we need to log post-send.
 			if c.traceRequestBody {
+				rewindRequest(req)
 				out, _ := httputil.DumpRequestOut(req, true)
 				c.log.Printf("Request %d: %s", attempt, out)
 			}
@@ -385,11 +387,7 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 			}
 
 			// need to reset body for the retry
-			if req.Body != nil {
-				if rs, ok := req.Body.(io.ReadSeeker); ok {
-					rs.Seek(0, 0)
-				}
-			}
+			rewindRequest(req)
 
 			attempt++
 			continue
@@ -407,11 +405,7 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 	}
 
 	if len(c.postCallbacks) > 0 && !c.handlingPostCallback {
-		if req.Body != nil {
-			if rs, ok := req.Body.(io.ReadSeeker); ok {
-				rs.Seek(0, 0)
-			}
-		}
+		rewindRequest(req)
 		c.handlingPostCallback = true
 		defer func() {
 			c.handlingPostCallback = false
@@ -425,6 +419,14 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 	}
 
 	return resp, err
+}
+
+func rewindRequest(req *http.Request) {
+	if req.Body != nil {
+		if rs, ok := req.Body.(io.ReadSeeker); ok {
+			rs.Seek(0, 0)
+		}
+	}
 }
 
 func (c *Client) Get(urlStr string) (resp *http.Response, err error) {
