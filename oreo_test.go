@@ -473,3 +473,23 @@ func TestOreoPostCompressed(t *testing.T) {
 	assert.Equal(t, []byte("OK"), body)
 	assert.Equal(t, int64(2), resp.ContentLength)
 }
+
+func TestLoadCookies(t *testing.T) {
+	t.Parallel()
+
+	c := New().WithCookieFile("./test-cookies.js")
+	err := c.initCookieJar()
+	assert.NoError(t, err)
+
+	u, err := url.Parse("https://localhost:8080/rest/api/2/search?query=foobar")
+	assert.NoError(t, err)
+
+	cookies := c.Jar.Cookies(u)
+	assert.Equal(t, 2, len(cookies))
+
+	assert.Equal(t, "testing.xsrf.token", cookies[0].Name)
+	assert.Equal(t, "AEB9FFF0-E4F5-4904-A61A-4892A5641B9E", cookies[0].Value)
+
+	assert.Equal(t, "JSESSIONID", cookies[1].Name)
+	assert.Equal(t, "5B61F418-4928-400C-84AB-6EC61008511A", cookies[1].Value)
+}
