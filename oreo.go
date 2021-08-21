@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	flock "github.com/theckman/go-flock"
@@ -45,6 +46,7 @@ type Client struct {
 	traceCookies         bool
 	traceRequestBody     bool
 	traceResponseBody    bool
+	jarMu                *sync.Mutex
 }
 
 func New() *Client {
@@ -54,6 +56,7 @@ func New() *Client {
 		preCallbacks:         []PreRequestCallback{},
 		postCallbacks:        []PostRequestCallback{},
 		log:                  DefaultLogger,
+		jarMu:                &sync.Mutex{},
 	}
 }
 
@@ -169,6 +172,10 @@ func (c *Client) WithTrace(b bool) *Client {
 }
 
 func (c *Client) initCookieJar() (err error) {
+	// prevent data race to populate Jar when client is used parallel
+	c.jarMu.Lock()
+	defer c.jarMu.Unlock()
+
 	if c.Jar != nil {
 		return nil
 	}
