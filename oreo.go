@@ -470,6 +470,33 @@ func (c *Client) Head(urlStr string) (resp *http.Response, err error) {
 	return c.Do(req)
 }
 
+func (c *Client) Patch(urlStr string, bodyType string, body io.Reader) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return
+	}
+	req := RequestBuilder(parsed).WithMethod("PATCH").WithContentType(bodyType).WithBody(body).Build()
+	return c.Do(req)
+}
+
+func (c *Client) PatchJSON(urlStr string, jsonStr string) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return
+	}
+	req := RequestBuilder(parsed).WithMethod("PATCH").WithJSON(jsonStr).Build()
+	return c.Do(req)
+}
+
+func (c *Client) PatchXML(urlStr string, xmlStr string) (resp *http.Response, err error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return
+	}
+	req := RequestBuilder(parsed).WithMethod("PATCH").WithXML(xmlStr).Build()
+	return c.Do(req)
+}
+
 func (c *Client) Post(urlStr string, bodyType string, body io.Reader) (resp *http.Response, err error) {
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
